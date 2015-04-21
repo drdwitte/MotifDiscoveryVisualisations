@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<head>
+<meta charset="utf-8">
+<script type="text/javascript" src="d3/d3.min.js"></script>
+<style>
+	.axis text {
+	  font: 22px sans-serif;
+	}
+
+	.axis path,
+	.axis line {
+	  fill: none;
+	  stroke: #000;
+	  shape-rendering: crispEdges;
+	}
+</style>
+</head>
+
+<body>
+
+	<form>
+		<table>
+			<tr>
+			<td> Motif alphabet: </td>
+			<td><input class="Alph" type="radio" name="chooseAlph" value="5" >         ACGT + N </td>
+			<td><input class="Alph" type="radio" name="chooseAlph" value="11" checked> ACGT + N + RYSWKM </td>
+			<td><input class="Alph" type="radio" name="chooseAlph" value="15" >        FULL IUPAC  </td>	
+			</tr>
+		</table>
+	</form>
+
+	
+<script>
+
+	var h = 1000;	 
+	var w = 1200;
+	var margin = {left:100, top:60, right:60, bottom:60};
+	var dotRadius = 7;
+	var strokeW = 3;
+	var colors = ["red", "blue", "green", "orange"];
+
+	var xScale;
+	var yScale;
+	var svg;
+		
+	var indivMeasurement = "samples";
+	var avgTime =   "averageTime";
+	var tsv = ".tsv";
+
+	bindListeners();
+	processDataset(getButtonValue("chooseAlph"));
+
+	function processDataset(alph){
+	
+		d3.selectAll("svg").remove();	
+
+		svg = d3.select("body").append("svg");	
+		svg.attr("height",h);
+		svg.attr("width",w);
+		
+		d3.tsv(avgTime+alph+tsv, function(data2){
+			d3.tsv(indivMeasurement+alph+tsv, function(data3){
+
+				console.log(avgTime+alph+tsv);
+				
+				xScale = d3.scale.linear()
+					.domain([6,12])
+					.range([margin.left,w-margin.right]);	
+			
+				yScale = d3.scale.log()
+					.domain([1e0,1e5])
+					.range([h-margin.bottom,margin.top]);
+
+			
+				generateAxes();
+				generateLegend();
+			
+				var d20 = [];
+				var d21 = [];
+				var d22 = [];
+				var d23 = [];
+
+				console.log(data2);
+				for (i=0; i<data2.length; i++){
+					if (data2[i].e == 0){
+						d20.push(data2[i]);							
+					}
+					else if (data2[i].e == 1){
+						d21.push(data2[i]);							
+					}
+					else if (data2[i].e == 2){
+						d22.push(data2[i]);							
+					}
+					else if (data2[i].e == 3){
+						d23.push(data2[i]);							
+					}					
+				}
+				var d30 = [];
+				var d31 = [];
+				var d32 = [];
+				var d33 = [];
+				for (i=0; i<data3.length; i++){
+
+
+					if (data3[i].t < 1.0){
+						data3[i].t=1.0;					
+					}
+
+					if (data3[i].e == 0){
+						d30.push(data3[i]);
+
+					}
+					else if (data3[i].e == 1){
+						d31.push(data3[i]);							
+					}
+					else if (data3[i].e == 2){
+						d32.push(data3[i]);							
+					}
+					else if (data3[i].e == 3){
+						d33.push(data3[i]);							
+					}					
+				}
+			
+
+
+				//console.log(d30);
+				console.log( d20.length + " " + d30.length); 
+				console.log( d21.length + " " + d31.length); 
+				console.log( d22.length + " " + d32.length); 
+				console.log( d23.length + " " + d33.length); 
+
+				drawLine(d20,d30,colors[3],"e0");
+				drawLine(d21,d31,colors[2],"e1");
+				drawLine(d22,d32,colors[1],"e2");
+				drawLine(d23,d33,colors[0],"e3");
+		
+
+
+			});
+		});
+	}
+
+
+	
+	function generateLegend(){
+		
+
+		var legend_desc = [
+				"e_max = 3", 
+				"e_max = 2",
+				"e_max = 1",
+				"e_max = 0"
+				];
+
+
+		for (i=0; i<colors.length; i++){
+
+
+				svg.append("text")
+					.text(legend_desc[i])
+					.attr("x",2*margin.left)
+					.attr("y",1.5*margin.top+i*25)
+					.attr("font-family", "sans-serif")
+					.attr("font-size", "22px")
+					.attr("fill", "black")
+					;
+
+				svg.append("line")
+					.attr("x1",1.25*margin.left)
+					.attr("x2",1.9*margin.left)
+					.attr("y1",1.5*margin.top+i*25-4)
+					.attr("y2",1.5*margin.top+i*25-4)	
+					.attr("stroke",colors[i] )
+					.attr("stroke-width", strokeW)
+		}
+	}
+
+	function drawLine(data_avg, data_all, color, label){
+		
+
+		var allDots = svg.selectAll("all").data(data_all).enter().append("circle");
+
+		allDots.attr("cx", function(d) { return xScale(d.k); });
+		allDots.attr("r", function(d) { return 2; });
+		allDots.attr("cy", function(d) {return yScale(d.t);});
+		allDots.attr("class", "allDots");	
+		allDots.style("fill", function(d) {return color;});
+		
+		var lineFunc = d3.svg.line()
+		  .x(function(d) {    return xScale(d.k); })
+		  .y(function(d) {    return yScale(d.t); })
+		  .interpolate('linear');
+
+		svg.append("path")
+		  .attr('d', lineFunc(data_avg))
+		  .attr('stroke', color)
+		  .attr('stroke-width', 3)
+		  .attr('fill', 'none');
+		
+
+		var avgDots = svg.selectAll(label).data(data_avg).enter().append("circle");
+
+		avgDots.attr("cx", function(d) { return xScale(d.k); });
+		avgDots.attr("r", function(d) { return dotRadius; });
+		avgDots.attr("cy", function(d) {return yScale(d.t);});
+		avgDots.attr("class", "avgDots");	
+		avgDots.style("fill", function(d) {return color;});
+
+		avgDots.on("mouseover", function(d){
+		
+			//line to Y-axis
+			svg.append("line")
+				.attr("id", "tooltip1")	
+				.attr("x1", xScale(d.k))
+				.attr("x2", margin.left)
+				.attr("y1", yScale(d.t))
+				.attr("y2", yScale(d.t))
+				.attr("stroke","black" )
+				.attr("stroke-width", 1)					
+				.style("stroke-dasharray","5,5")
+				;
+
+
+			svg.append("text")
+				.attr("id", "tooltip2")
+				.text(parseSciNumber(d.t))
+				.attr("x", 0)
+				.attr("y", yScale(d.t))
+				.attr("font-family", "sans-serif") 					
+				.attr("font-size", "10px")
+				.attr("fill", "black")
+				;
+
+			var currentDot = d3.select(this);
+				currentDot.transition()
+						.attr("r",dotRadius+3);
+		
+			
+		
+		});
+
+		avgDots.on("mouseout", function(d){
+
+			d3.select(this).transition().attr("r",dotRadius);
+			d3.select("#tooltip1").remove();
+			d3.select("#tooltip2").remove();
+		});
+
+
+
+		
+				
+
+	}
+
+
+	function generateAxes(){ 
+	//NOTE Y-axis must only be moved horizontally, scaling takes care of right position!
+
+		//drawing the X and Y-axis + add a caption
+		var xAxis = d3.svg.axis()
+				.scale(xScale)
+				.orient("bottom")
+				.ticks(7)
+				;
+
+		var yAxis = d3.svg.axis()
+				.scale(yScale)
+				.orient("left")
+				.ticks(20)
+				;
+
+		var gX = svg.append("g");
+		gX.attr("class","axis");
+		gX.attr("transform","translate("
+						+0
+						+","
+						+(h-margin.bottom)
+						+")"
+			);
+		gX.call(xAxis);
+
+		var gY = svg.append("g");
+		gY.attr("class","axis");
+		gY.attr("transform","translate("
+						+margin.left
+						+","
+						+0
+						+")"
+			);
+		gY.call(yAxis);
+
+
+		//adding captions
+		
+		var labelX = svg.append("text");
+		var labelY = svg.append("text");
+		labelX.text("Maximum motif length (min = 6)");
+		labelY.text("Time (ms) for motif retrieval in a gene family");
+
+		labelX.attr("transform","translate("
+						+(w-8.5*margin.right)
+						+","
+						+(h-1.2*margin.bottom)
+						+")"
+			);
+
+		labelY.attr("transform","translate("
+						+(margin.left/2) 
+						+","
+						+(margin.top/1.5)
+						+")"
+			);
+
+		labelX.attr("font-size", "25px")
+		labelY.attr("font-size", "25px")
+	}
+
+	function bindListeners(){
+	
+			d3.selectAll("input.Alph")
+					.on("click", function(){
+
+						var AlphType = d3.select(this).attr("value");
+					
+						processDataset(AlphType);
+			
+					});
+	}
+
+	function getButtonValue(name){
+			var buttons = document.getElementsByName(name);
+			for(var i = 0; i < buttons.length; i++) {
+				if (buttons[i].checked == true){
+					return buttons[i].value;			
+				}
+			}
+	}
+
+	function parseSciNumber(number){
+
+		if (number.indexOf("E")>=0){
+			return number.substr(0,4);		
+		} else {
+			return number.charAt(0)+"."+number.substr(1,2)		
+		}	
+	}
+
+
+
+
+	
+</script>
+
+</body>
+
+</html>
+

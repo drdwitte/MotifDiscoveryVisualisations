@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<head>
+<meta charset="utf-8">
+<script type="text/javascript" src="d3/d3.min.js"></script>
+<style>
+	.axis text {
+	 font: 17px Arial;
+	}
+
+	.axis path,
+	.axis line {
+	  fill: none;
+	  stroke: #000;
+	  shape-rendering: crispEdges;
+	}
+
+	tr {
+		width: 1200px	
+	}
+	
+
+
+</style>
+</head>
+
+<body>
+
+	<form>
+		<table>
+
+			<tr>
+			<td><input class="C" type="radio" name="chooseC" value="50" >         C<sub>thres</sub> >= 0.5 </td>
+			<td><input class="C" type="radio" name="chooseC" value="70" >         C<sub>thres</sub> >= 0.7 </td>
+			<td><input class="C" type="radio" name="chooseC" value="90" checked> C<sub>thres</sub> >= 0.9 </td>	
+			<td></td>		
+			<td></td>			
+			<td></td>				
+			</tr>
+			
+			<tr>
+			<td><input class="F" type="radio" name="chooseF" value="1">          F<sub>thres</sub> >= 1  </td>
+			<td><input class="F" type="radio" name="chooseF" value="5">          F<sub>thres</sub> >= 5   </td>
+			<td><input class="F" type="radio" name="chooseF" value="10" checked> F<sub>thres</sub> >= 10  </td>	
+			<td><input class="F" type="radio" name="chooseF" value="15">         F<sub>thres</sub> >= 15  </td>	
+			<td><input class="F" type="radio" name="chooseF" value="20">         F<sub>thres</sub> >= 20  </td>
+			<td><input class="F" type="radio" name="chooseF" value="500">        F<sub>thres</sub> >= 500 </td>	
+			</tr>
+
+			<tr>
+			<td><input class="T" type="radio" name="chooseT" value="15" checked> BLS >= 15% </td>
+			<td><input class="T" type="radio" name="chooseT" value="70">         BLS >= 70% </td>
+			<td><input class="T" type="radio" name="chooseT" value="95">         BLS >= 95% only </td>	
+			<td></td>		
+			<td></td>			
+			<td></td>			
+			</tr>
+		</table>
+	</form>
+
+	<br>
+
+
+	<form>
+		<table>
+
+			<tr>
+			<td><input class="alg" type="radio" name="chooseAlg" value="AF" > Alignment-Free (AF) </td>
+			<td><input class="alg" type="radio" name="chooseAlg" value="AB" >         Alignment-Based (AB) </td>
+			<td><input class="alg" type="radio" name="chooseAlg" value="AFAB" checked>       Compare AF versus AB </td>	
+			</tr>
+		</table>
+	</form>
+
+	<br>
+
+	<form>
+		<table>
+
+			<tr>
+			<td> Motif Length </td>
+			<td> <input class="k" type="checkbox" name="chooseK" value="6"  checked> k=6  </td>
+			<td> <input class="k" type="checkbox" name="chooseK" value="7"  checked> k=7  </td>
+			<td> <input class="k" type="checkbox" name="chooseK" value="8"  checked> k=8  </td>	
+			<td> <input class="k" type="checkbox" name="chooseK" value="9"  checked> k=9  </td>	
+			<td> <input class="k" type="checkbox" name="chooseK" value="10"  checked> k=10 </td>	
+			<td> <input class="k" type="checkbox" name="chooseK" value="11"  checked> k=11 </td>
+			<td> <input class="k" type="checkbox" name="chooseK" value="12"  checked> k=12 </td>								
+			<td><button type="button" onclick="checkAll('chooseK')">Select All </button></td>
+			<td><button type="button" onclick="uncheckAll('chooseK')">Deselect All </button></td>	
+			<td> <input class="k" type="checkbox" id="chooseSumK"> Sum over k </td>				
+			</tr>
+
+			<tr>	
+			<td> Motif Degeneracy </td>	
+			<td> <input class="s" type="checkbox" name="chooseS" value="1"  checked> s=1  </td>
+			<td> <input class="s" type="checkbox" name="chooseS" value="2"         > s=2  </td>	
+			<td> <input class="s" type="checkbox" name="chooseS" value="4"  checked> s=4  </td>	
+			<td> <input class="s" type="checkbox" name="chooseS" value="8"         > s=8  </td>	
+			<td> <input class="s" type="checkbox" name="chooseS" value="16" checked> s=16 </td>
+			<td> <input class="s" type="checkbox" name="chooseS" value="32"        > s=32 </td>	
+			<td> <input class="s" type="checkbox" name="chooseS" value="64" checked> s=64 </td>
+			<td><button type="button" onclick="checkAll('chooseS')">Select All </button></td>
+			<td><button type="button" onclick="uncheckAll('chooseS')">Deselect All </button></td>
+			<td> <input class="s" type="checkbox" id="chooseSumS"> Sum over s </td>					
+			</tr>
+		</table>
+	</form>
+<script>
+
+		
+	
+
+
+	var Cthr = [50,70,90];
+	var Fthr = [1,5,10,15,20,500];
+	var Tthr = [15,70,95];
+	var Kthr = [6,7,8,9,10,11,12];
+	var Sthr = [1,2,4,8,16,32,64];	 
+		
+
+	bindListeners();
+	
+	var h = 750;	 
+	var w = 1800;
+	var margin = {left:60, top:60, right:60, bottom:60};
+
+	processDataset(getButtonValue("chooseC"),getButtonValue("chooseF"),getButtonValue("chooseT"),getButtonValue("chooseAlg"));
+
+	function processDataset(Ct, Ft, Tt,alg){
+
+		//opm de AF en AB keuzebuttons hoeven geen simulatie te triggeren enkel een aanpassing van de datapunten: bars centraliseren en 1 bar onzichtbaar maken
+		//kan met een simpele selectAll
+
+		d3.selectAll("svg").remove();		
+	
+
+		var Ksum = getCheckBoxCheckValue("chooseSumK");
+		var Ssum = getCheckBoxCheckValue("chooseSumS");
+
+		//console.log(Ksum);
+		//console.log(Ssum);
+
+		var Ks = getCheckBoxValues("chooseK"); //[6,7,8,9,10,11,12];
+			 	
+		
+
+		var Ss = getCheckBoxValues("chooseS"); //[6,7,8,9,10,11,12];
+		
+		svg = d3.select("body").append("svg");
+
+		svg.attr("height",h);
+		svg.attr("width",w);	
+
+		
+		var xScale;
+		if (!Ksum && !Ssum){ 
+			xScale= d3.scale.ordinal()
+    			.domain(generateLabels(Ks,Ss))
+    			.rangeBands([margin.left,w-margin.right]);
+
+		} else if (Ksum && Ssum){
+			xScale= d3.scale.ordinal()
+    			.domain(generateLabels(["Sum"],["Sum"]))
+    			.rangeBands([margin.left,w-margin.right]);
+
+		} else if (Ksum){
+			xScale= d3.scale.ordinal()
+    			.domain(generateLabels(["Sum"],Ss))
+    			.rangeBands([margin.left,w-margin.right]);
+				
+		} else if (Ssum){
+			xScale= d3.scale.ordinal()
+    			.domain(generateLabels(Ks,["Sum"]))
+    			.rangeBands([margin.left,w-margin.right]);
+		}
+		
+			 
+	
+		var yScale = d3.scale.log()
+			.domain([1,1e10])
+			.range([h-margin.bottom,margin.top]);
+
+	
+		d3.csv("AFRealReworked.csv", function(data1){ 
+			d3.csv("ABRealReworked.csv", function(data2){
+				d3.csv("AFRandomReworked.csv", function(data3){
+					d3.csv("ABRandomReworked.csv", function(data4){
+					
+						var datapoints;
+						if (!Ksum && !Ssum){ 
+							datapoints = generateDataset(data1,data2,data3,data4,Ct,Ft,Tt,Ks,Ss);
+							
+						} else if (Ksum && Ssum){
+							datapoints = generateDatasetSumKS(data1,data2,data3,data4,Ct,Ft,Tt,Ks,Ss);
+
+
+
+						} else if (Ksum){
+							datapoints = generateDatasetSumK(data1,data2,data3,data4,Ct,Ft,Tt,Ks,Ss);
+
+
+						} else if (Ssum){
+							datapoints = generateDatasetSumS(data1,data2,data3,data4,Ct,Ft,Tt,Ks,Ss);
+
+
+						}
+
+						generateAxes(svg, xScale, yScale, Ct, Ft, Tt);
+						generateLegend(svg);							
+						drawPairedHistogram(datapoints, svg, xScale, yScale, Ct, Ft, Tt, alg);
+						
+
+
+
+					});			
+				}); 		
+			});	
+		});
+	}
+
+	function generateLabels(Ks,Ss){
+		var labels = [];
+	
+		for (k=0; k<Ks.length; k++){
+			for(s=0; s<Ss.length; s++){
+				labels.push(generateKSLabel(Ks[k],Ss[s]));
+			}
+		}
+
+		return labels;	
+		
+	}
+
+	function generateDataset(datasetAFReal, datasetABReal, datasetAFRandom, datasetABRandom,C,F,T,Ks,Ss){
+		
+		dataptn = [];
+		for (i=0; i<datasetAFReal.length; i++){
+			
+			var id = datasetAFReal[i].name;
+			var spl = id.split("_");
+						
+			var Fd = parseInt(spl[2]);
+			var Td = parseInt(spl[3]);			
+			var Cd = parseInt(spl[1]);	
+
+			if (Fd==F && Td==T && Cd==C){
+
+				for (k=0; k<Ks.length; k++){
+					for(s=0; s<Ss.length; s++){
+						
+						var lblInputData = "k"+Ks[k]+"s"+Ss[s];
+						var lblX =generateKSLabel(Ks[k],Ss[s]);			
+						
+						dataptn.push({
+							name:		"C"+C+"F"+F+"BLS"+T+lblX,
+							AFreal:	        datasetAFReal[i][lblInputData],
+							AFrandm:	datasetAFRandom[i][lblInputData],
+							ABreal:	        datasetABReal[i][lblInputData],
+							ABrandm:	datasetABRandom[i][lblInputData],
+							label:		lblX
+					
+						});
+					}
+				}
+			}
+					
+				
+					
+		}
+
+		return dataptn;
+	}
+
+	function generateDatasetSumK(datasetAFReal, datasetABReal, datasetAFRandom, datasetABRandom,C,F,T,Ks,Ss){
+		
+		dataptn = [];
+		for (i=0; i<datasetAFReal.length; i++){
+			
+			var id = datasetAFReal[i].name;
+			var spl = id.split("_");
+						
+			var Fd = parseInt(spl[2]);
+			var Td = parseInt(spl[3]);			
+			var Cd = parseInt(spl[1]);	
+
+			if (Fd==F && Td==T && Cd==C){
+
+				labels = [];
+				
+				for(s=0; s<Ss.length; s++){
+					
+					sumAFreal = 0;
+					sumAFrandm= 0;					
+					sumABreal = 0;
+					sumABrandm= 0;	
+					
+			
+
+					for (k=0; k<Ks.length; k++){	
+					
+						var lblInputData = "k"+Ks[k]+"s"+Ss[s];
+	
+						sumAFreal  += parseInt(datasetAFReal[i][lblInputData]);
+						sumAFrandm += parseInt(datasetAFRandom[i][lblInputData]);					
+						sumABreal  += parseInt(datasetABReal[i][lblInputData]);
+						sumABrandm += parseInt(datasetABRandom[i][lblInputData]);	
+						
+						
+					}
+
+					var lblX =generateKSLabel("Sum",Ss[s]);	
+
+									
+					dataptn.push({
+						name:		"C"+C+"F"+F+"BLS"+T+lblX,
+						AFreal:	        sumAFreal,
+						AFrandm:	sumAFrandm,
+						ABreal:	        sumABreal,
+						ABrandm:	sumABrandm,
+						label:		lblX
+			
+					});
+				}
+			}
+					
+				
+					
+		}
+
+		return dataptn;
+	}
+
+	function generateDatasetSumS(datasetAFReal, datasetABReal, datasetAFRandom, datasetABRandom,C,F,T,Ks,Ss){
+		
+		dataptn = [];
+		for (i=0; i<datasetAFReal.length; i++){
+			
+			var id = datasetAFReal[i].name;
+			var spl = id.split("_");
+						
+			var Fd = parseInt(spl[2]);
+			var Td = parseInt(spl[3]);			
+			var Cd = parseInt(spl[1]);	
+
+			if (Fd==F && Td==T && Cd==C){
+
+				labels = [];
+				
+				for (k=0; k<Ks.length; k++){
+				
+					
+					sumAFreal = 0;
+					sumAFrandm= 0;					
+					sumABreal = 0;
+					sumABrandm= 0;	
+					
+			
+					for(s=0; s<Ss.length; s++){
+						
+					
+						var lblInputData = "k"+Ks[k]+"s"+Ss[s];
+	
+						sumAFreal  += parseInt(datasetAFReal[i][lblInputData]);
+						sumAFrandm += parseInt(datasetAFRandom[i][lblInputData]);					
+						sumABreal  += parseInt(datasetABReal[i][lblInputData]);
+						sumABrandm += parseInt(datasetABRandom[i][lblInputData]);	
+						
+						
+					}
+
+					var lblX =generateKSLabel(Ks[k],"Sum");	
+
+									
+					dataptn.push({
+						name:		"C"+C+"F"+F+"BLS"+T+lblX,
+						AFreal:	        sumAFreal,
+						AFrandm:	sumAFrandm,
+						ABreal:	        sumABreal,
+						ABrandm:	sumABrandm,
+						label:		lblX
+			
+					});
+				}
+			}
+					
+				
+					
+		}
+
+		return dataptn;
+	}
+
+	function generateDatasetSumKS(datasetAFReal, datasetABReal, datasetAFRandom, datasetABRandom,C,F,T,Ks,Ss){
+		
+		dataptn = [];
+		for (i=0; i<datasetAFReal.length; i++){
+			
+			var id = datasetAFReal[i].name;
+			var spl = id.split("_");
+						
+			var Fd = parseInt(spl[2]);
+			var Td = parseInt(spl[3]);			
+			var Cd = parseInt(spl[1]);	
+
+			if (Fd==F && Td==T && Cd==C){
+
+				sumAFreal = 0;
+				sumAFrandm= 0;					
+				sumABreal = 0;
+				sumABrandm= 0;				
+				
+				for (k=0; k<Ks.length; k++){
+					for(s=0; s<Ss.length; s++){
+						
+					
+						var lblInputData = "k"+Ks[k]+"s"+Ss[s];
+	
+						sumAFreal  += parseInt(datasetAFReal[i][lblInputData]);
+						sumAFrandm += parseInt(datasetAFRandom[i][lblInputData]);					
+						sumABreal  += parseInt(datasetABReal[i][lblInputData]);
+						sumABrandm += parseInt(datasetABRandom[i][lblInputData]);	
+						
+						
+					}
+				}
+
+				var lblX =generateKSLabel("Sum","Sum");	
+
+									
+				dataptn.push({
+					name:		"C"+C+"F"+F+"BLS"+T+lblX,
+					AFreal:	        sumAFreal,
+					AFrandm:	sumAFrandm,
+					ABreal:	        sumABreal,
+					ABrandm:	sumABrandm,
+					label:		lblX
+				});
+			
+			}
+					
+				
+					
+		}
+
+		return dataptn;
+	}
+	
+	function drawPairedHistogram(dataptn, svg, xScale, yScale, Ct, Ft, Tt, alg){
+		
+
+
+
+		var barWidth = xScale.rangeBand()/4;
+
+		//selecting elements for bar drawing
+		var AFBars = svg.selectAll("AFBars").data(dataptn).enter().append("rect");
+		var ABBars = svg.selectAll("ABBars").data(dataptn).enter().append("rect");
+
+		var moveXAF = 0;
+		var moveXAB = 0;		
+
+		if (alg == "AFAB"){
+			moveXAF = - barWidth;
+			moveXAB = 0;		
+		} else if (alg == "AF"){
+			moveXAF = - barWidth/2;
+			moveXAB = 0;
+		} else if (alg == "AB"){
+			moveXAF = 0;
+			moveXAB = - barWidth/2;
+		}
+
+		console.log(moveXAF);
+		console.log(moveXAB);
+		//draw bars
+
+		if (alg == "AF" || alg == "AFAB"){
+
+			AFBars.attr("x"       , function(d) { return xScale(d.label) + xScale.rangeBand()/2 + moveXAF })
+				.attr("y"     , function(d) { return yScale(logCorr(d.AFreal)); })
+				.attr("width" , function(d) { return barWidth;})
+				.attr("height", function(d) { return h-margin.bottom-yScale(logCorr(d.AFreal));})		
+				.attr("class" , "AFBars")
+				.style("fill" , function(d) { return getColor(d.AFreal,d.AFrandm);})
+		
+				.on("mouseover", function(d){
+				
+					var currentBar = d3.select(this);
+					currentBar.transition()
+						.style("fill","blue");
+									
+	
+					//line to Y-axis
+					svg.append("line")
+						.attr("id", "tooltip1")	
+						.attr("x1", xScale(d.label) + xScale.rangeBand()/2 + moveXAF)
+						.attr("x2", margin.left)
+						.attr("y1", yScale(d.AFreal))
+						.attr("y2", yScale(d.AFreal))
+						.attr("stroke","black" )
+						.attr("stroke-width", 1)					
+						.style("stroke-dasharray","5,5")
+						;
+
+					//FDR of bar				
+					var fdrCalc = 100*fdr(d.AFreal,d.AFrandm)+"";
+					//if (fdrCalc>100){ fdrCalc = 100.0;}				
+					var fdrStr  = "FDR= "+fdrCalc.substr(0,fdrCalc.indexOf('.')+3)+" %";
+
+					//label
+					svg.append("text")
+						.attr("id", "tooltip2")
+						.text("AF "+fdrStr)					
+						.attr("x", xScale(d.label) + xScale.rangeBand()/2 + moveXAF)
+						.attr("y", yScale(d.AFreal)-5)
+						.attr("font-family", "sans-serif") 					
+						.attr("font-size", "10px")
+						.attr("fill", "black")
+						;
+
+
+					
+
+					//value on Y-axis
+					svg.append("text")
+						.attr("id", "tooltip3")
+						.text(d.AFreal)
+						.attr("x", 0)
+						.attr("y", yScale(d.AFreal))
+						.attr("font-family", "sans-serif") 					
+						.attr("font-size", "10px")
+						.attr("fill", "black")
+						;
+			
+				})
+
+				.on("mouseout", function(d){
+					d3.select("#tooltip1").remove();	
+					d3.select("#tooltip2").remove();	
+					d3.select("#tooltip3").remove();	
+				
+					var currentBar = d3.select(this);
+					currentBar.transition()
+						.style("fill" , getColor(d.AFreal,d.AFrandm));
+				})
+				;
+		}
+
+		if (alg == "AB" || alg == "AFAB"){
+
+			ABBars.attr("x"       , function(d) { return xScale(d.label) + xScale.rangeBand()/2 + moveXAB; })
+				.attr("y"     , function(d) { return yScale(logCorr(d.ABreal)); })
+				.attr("width" , function(d) { return barWidth;})
+				.attr("height", function(d) { return h-margin.bottom-yScale(logCorr(d.ABreal));})		
+				.attr("class" , "ABBars")
+				.style("fill" , function(d) { return getColor(d.ABreal,d.ABrandm);})
+
+				.on("mouseover", function(d){
+
+					//highlight bar
+					var currentBar = d3.select(this);
+					currentBar.transition()
+						.style("fill","blue");
+				
+					//line to Y-axis
+					svg.append("line")
+						.attr("id", "tooltip1")	
+						.attr("x1", xScale(d.label) + xScale.rangeBand()/2 + moveXAB)
+						.attr("x2", margin.left)
+						.attr("y1", yScale(d.ABreal))
+						.attr("y2", yScale(d.ABreal))
+						.attr("stroke","black" )
+						.attr("stroke-width", 1)					
+						.style("stroke-dasharray","5,5")
+						;
+				
+					//FDR of bar				
+					var fdrCalc = 100*fdr(d.ABreal,d.ABrandm)+"";
+					//if (fdrCalc>100){ fdrCalc = 100.0;}
+					var fdrStr  = "FDR= "+fdrCalc.substr(0,fdrCalc.indexOf('.')+3)+" %";
+	
+					//label
+					svg.append("text")
+						.attr("id","tooltip2")
+						.text("AB "+fdrStr)					
+						.attr("x", xScale(d.label) + xScale.rangeBand()/2 + moveXAB)
+						.attr("y", yScale(d.ABreal)-5)
+						.attr("font-family", "sans-serif") 					
+						.attr("font-size", "10px")
+						.attr("fill", "black")
+						;
+
+					//value on Y-axis
+					svg.append("text")
+						.attr("id", "tooltip3")
+						.text(d.ABreal)
+						.attr("x", 0)
+						.attr("y", yScale(d.ABreal))
+						.attr("font-family", "sans-serif") 					
+						.attr("font-size", "10px")
+						.attr("fill", "black")
+						;
+			
+				})
+
+				.on("mouseout", function(d){
+					d3.select("#tooltip1").remove();	
+					d3.select("#tooltip2").remove();
+
+					d3.select("#tooltip1").remove();	
+					d3.select("#tooltip2").remove();	
+					d3.select("#tooltip3").remove();	
+				
+					var currentBar = d3.select(this);
+					currentBar.transition()
+						.style("fill" , getColor(d.ABreal,d.ABrandm));	
+				})
+				;
+		}
+
+	}
+	
+	function generateAxes(svg, xScale, yScale, Ct, Ft, Tt){ 
+	//NOTE Y-axis must only be moved horizontally, scaling takes care of right position!
+
+		//drawing the X and Y-axis + add a caption
+		var xAxis = d3.svg.axis()
+				.scale(xScale)
+				.orient("bottom")
+				.ticks(4)
+				;
+
+		var yAxis = d3.svg.axis()
+				.scale(yScale)
+				.orient("left")
+				.ticks(5)
+				;
+
+		var gX = svg.append("g");
+		gX.attr("class","axis");
+		gX.attr("transform","translate("
+						+0
+						+","
+						+(h-margin.bottom)
+						+")"
+			);
+		gX.call(xAxis);
+
+		var gY = svg.append("g");
+		gY.attr("class","axis");
+		gY.attr("transform","translate("
+						+margin.left
+						+","
+						+0
+						+")"
+			);
+		gY.call(yAxis);
+		
+
+		//adding captions
+		
+		var labelX = svg.append("text");
+		var labelY = svg.append("text");
+		labelX.text("Motif Type (k = length, s = degeneracy)");
+		labelY.text("Number of motifs in real dataset C >= 0."+Ct+", F >= "+Ft+", BLS >= "+Tt+"%");
+
+		labelX.attr("transform","translate("
+						+(w-8*margin.right)
+						+","
+						+(h-0.3*margin.bottom)
+						+")"
+			);
+
+		labelY.attr("transform","translate("
+						+(margin.left/2) 
+						+","
+						+(margin.top/2)
+						+")"
+			);
+
+		labelX.attr("font-size", "20px")
+		labelY.attr("font-size", "20px")
+		
+	}
+	
+	function logCorr(c){
+		if (c<=1)
+			return 1.0;
+		else 
+			return c;
+			
+	}
+
+	function generateLegend(svg){
+		
+		var legend_desc = [
+				"10%  <= FDR       ", 
+				"5%   <= FDR <  10%",
+				"1%   <= FDR <   5%",
+				"0.1% <= FDR <   1%",
+				"        FDR < 0.1%" 
+				];
+
+		
+		var colors = ["red", "orange", "yellow", "lawngreen", "green"];
+
+
+		var legendWidth  = 24;
+		var legendHeight = 24;
+
+		for (i=0; i<colors.length; i++){
+
+
+
+			//console.log(colors[i]+" "+colorFilter[colors[i]]);		
+
+			svg.append("text")
+				.text(legend_desc[i])
+				.attr("x",2*margin.left + legendWidth +5)
+				.attr("y",margin.top+i*(legendWidth+3))
+				.attr("font-family", "sans-serif")
+				.attr("font-size", "18px")
+				.attr("fill", "black")
+				;
+
+			svg.append("rect")
+				.attr("x",2*margin.left)
+				.attr("y",margin.top+i*(legendHeight+3)-legendHeight/1.5)
+				.attr("width" , legendWidth)
+				.attr("height", legendHeight)
+				.attr("fill",colors[i])
+				;
+				
+				
+		}	
+			
+	}	
+
+
+	function generateKSLabel(k,s){
+		return "k"+k+"s"+s;	
+	}
+	
+	function fdr(_real, _randm){
+		return _randm / _real;	
+	}
+	function getColor(real, randm){
+		var f = randm/real;
+		if (f>=0.1)
+			return "rgb(255, 0, 0)";
+		else if (f>=0.05)
+			return "rgb(255, 165, 0)";
+		else if (f>=0.01)
+			return "rgb(255, 255, 0)";
+		else if (f>=0.001)
+			return "rgb(124, 252, 0)";
+		else
+			return "rgb(0, 128, 0)";		
+
+			
+	}
+
+	function getButtonValue(name){
+		var buttons = document.getElementsByName(name);
+		for(var i = 0; i < buttons.length; i++) {
+			if (buttons[i].checked == true){
+				return buttons[i].value;			
+			}
+		}
+	}
+
+	function getCheckBoxValues(name){
+		var boxes = document.getElementsByName(name);
+
+		var values = [];		
+		for(var i = 0; i < boxes.length; i++) {
+			if (boxes[i].checked == true){
+				values.push(parseInt(boxes[i].value));			
+			}
+		}
+		return values;
+	}
+
+	function getCheckBoxCheckValue(id){
+		var box = document.getElementById(id);
+		console.log(id+": "+box.checked);
+		return box.checked == true;		
+		
+	}
+
+	function bindListeners(){
+	
+		d3.selectAll("input.C")
+				.on("click", function(){
+
+					var C = d3.select(this).attr("value");
+					var F = getButtonValue("chooseF");
+					var T = getButtonValue("chooseT");
+					var alg = getButtonValue("chooseAlg");
+					processDataset(C,F,T,alg);
+			
+				});
+
+		d3.selectAll("input.T")
+				.on("click", function(){
+
+					var C = getButtonValue("chooseC");
+					var F = getButtonValue("chooseF");
+					var T = d3.select(this).attr("value");
+					var alg = getButtonValue("chooseAlg");
+					processDataset(C,F,T,alg);
+		
+				});
+			
+		d3.selectAll("input.F")
+				.on("click", function(){
+
+					var C = getButtonValue("chooseC");
+					var F = d3.select(this).attr("value");
+					var T = getButtonValue("chooseT");
+					var alg = getButtonValue("chooseAlg");
+					processDataset(C,F,T,alg);
+				
+				});
+
+		d3.selectAll("input.k")
+				.on("click", function(){
+
+					var C = getButtonValue("chooseC");
+					var F = getButtonValue("chooseF");
+					var T = getButtonValue("chooseT");
+					var alg = getButtonValue("chooseAlg");
+					processDataset(C,F,T,alg);
+				
+				});
+
+		d3.selectAll("input.s")
+				.on("click", function(){
+
+					var C = getButtonValue("chooseC");
+					var F = getButtonValue("chooseF");
+					var T = getButtonValue("chooseT");
+					var alg = getButtonValue("chooseAlg");
+					processDataset(C,F,T,alg);
+				
+				});
+
+		d3.selectAll("input.alg")
+			.on("click", function(){
+
+					var C = getButtonValue("chooseC");
+					var F = getButtonValue("chooseF");
+					var T = getButtonValue("chooseT");
+					var alg = getButtonValue("chooseAlg");
+					processDataset(C,F,T,alg);
+
+
+
+					/*var type = getButtonValue("chooseAlg");
+					
+					if (type == "AFAB"){
+					
+						d3.selectAll(".AFBars")
+							.style("fill-opacity","1")						
+							.style("pointer-events","all");
+
+
+						d3.selectAll(".ABBars")
+							.style("fill-opacity","1")						
+							.style("pointer-events","all");	
+
+					} else if (type == "AF"){
+					
+						d3.selectAll(".AFBars")
+							.style("fill-opacity","1")						
+							.style("pointer-events","all");	
+
+						d3.selectAll(".ABBars")
+							.style("fill-opacity","0")						
+							.style("pointer-events","none");	
+					
+					} else if (type == "AB"){
+
+						d3.selectAll(".AFBars")
+							.style("fill-opacity","0")						
+							.style("pointer-events","none");	
+
+						d3.selectAll(".ABBars")
+							.style("fill-opacity","1")						
+							.style("pointer-events","all");	
+					}*/
+
+
+
+
+				
+				});
+		
+
+
+	}
+
+	function checkAll(name){
+		var boxes = document.getElementsByName(name);
+		for (i=0; i<boxes.length; i++){
+			boxes[i].checked = true;		
+		}
+
+		var C = getButtonValue("chooseC");
+		var F = getButtonValue("chooseF");
+		var T = getButtonValue("chooseT");
+		var alg = getButtonValue("chooseAlg");
+		processDataset(C,F,T,alg);
+	}
+		
+	function uncheckAll(name){
+		var boxes = document.getElementsByName(name);
+		for (i=0; i<boxes.length; i++){
+			boxes[i].checked = false;		
+		}
+
+		var C = getButtonValue("chooseC");
+		var F = getButtonValue("chooseF");
+		var T = getButtonValue("chooseT");
+		var alg = getButtonValue("chooseAlg");
+		processDataset(C,F,T,alg);
+	}
+
+
+	
+	
+		
+
+						
+
+	
+</script>
+
+</body>
+
+</html>
+

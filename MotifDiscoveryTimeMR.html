@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<head>
+<meta charset="utf-8">
+<script type="text/javascript" src="d3/d3.min.js"></script>
+<style>
+	.axis text {
+	  font: 15px sans-serif;
+	}
+
+	.axis path,
+	.axis line {
+	  fill: none;
+	  stroke: #000;
+	  shape-rendering: crispEdges;
+	}
+</style>
+</head>
+
+<body>
+
+	
+<script>
+
+	var h = 1000;	 
+	var w = 1200;
+	var margin = {left:60, top:60, right:60, bottom:60};
+	var dotRadius = 7;
+	var strokeW = 3;
+	var colors = ["red", "blue", "green", "orange"];
+
+	var xScale;
+	var yScale;
+	var svg;
+		
+	var file = "memvsmr.tsv";
+
+
+	processDataset();
+
+	function processDataset(){
+	
+		d3.selectAll("svg").remove();	
+
+		svg = d3.select("body").append("svg");	
+		svg.attr("height",h);
+		svg.attr("width",w);
+		
+		d3.tsv(file, function(data){
+
+
+
+				
+				xScale = d3.scale.linear()
+					.domain([6,12])
+					.range([margin.left,w-margin.right]);	
+			
+				yScale = d3.scale.log()
+					.domain([1e0,2e5])
+					.range([h-margin.bottom,margin.top]);
+
+			
+				generateAxes();
+				generateLegend();
+					
+				var data0 = [];
+				var data1 = [];
+				var data2 = [];
+				var data3 = [];
+
+
+				for (i=0; i<data.length; i++){
+
+					if (data[i].t < 1.0){
+						data[i].t=1.0;					
+					}
+					if (data[i].tmr < 1.0){
+						data[i].tmr=1.0;					
+					}
+	
+
+					if (data[i].e == 0){
+						data0.push(data[i]);							
+					}
+					else if (data[i].e == 1){
+						data1.push(data[i]);							
+					}
+					else if (data[i].e == 2){
+						data2.push(data[i]);							
+					}
+					else if (data[i].e == 3){
+						data3.push(data[i]);							
+					}					
+				}
+				
+
+
+				drawComp(data0,colors[3],"e0");
+				drawComp(data1,colors[2],"e1");
+				drawComp(data2,colors[1],"e2");
+				drawComp(data3,colors[0],"e3");
+		
+
+
+			
+		});
+	}
+
+
+	
+	function generateLegend(){
+		
+
+		var legend_desc = [
+				"e_max = 3", 
+				"e_max = 2",
+				"e_max = 1",
+				"e_max = 0"
+				];
+
+
+		for (i=0; i<colors.length; i++){
+
+
+				svg.append("text")
+					.text(legend_desc[i])
+					.attr("x",2*margin.left)
+					.attr("y",1.5*margin.top+i*25)
+					.attr("font-family", "sans-serif")
+					.attr("font-size", "11px")
+					.attr("fill", "black")
+					;
+
+				svg.append("line")
+					.attr("x1",1.25*margin.left)
+					.attr("x2",1.9*margin.left)
+					.attr("y1",1.5*margin.top+i*25-4)
+					.attr("y2",1.5*margin.top+i*25-4)	
+					.attr("stroke",colors[i] )
+					.attr("stroke-width", strokeW)
+		}
+	}
+
+	function drawComp(data, color, label){
+		
+
+		
+		
+		var lineFuncMM = d3.svg.line()
+		  .x(function(d) {    return xScale(d.k); })
+		  .y(function(d) {    return yScale(d.t); })
+		  .interpolate('linear');
+
+		var lineFuncMR = d3.svg.line()
+		  .x(function(d) {    return xScale(d.k); })
+		  .y(function(d) {    return yScale(d.tmr); })
+		  .interpolate('linear');
+
+
+		svg.append("path")
+		  .attr('d', lineFuncMM(data))
+		  .attr('stroke', color)
+		  .attr('stroke-width', 3)
+		  .attr('fill', 'none');
+
+		svg.append("path")
+		  .attr('d', lineFuncMR(data))
+		  .attr('stroke', color)
+		  .attr('stroke-width', 3)
+		  .attr('fill', 'none');
+		
+		
+		var lines = svg.selectAll(label+"comp").data(data).enter().append("line");
+
+
+		lines.attr("x1", function(d) { return xScale(d.k)})
+				.attr("x2", function(d) { return xScale(d.k)})
+				.attr("y1", function(d) { return yScale(d.t)})
+				.attr("y2", function(d) { return yScale(d.tmr)})
+				.attr("stroke",color )
+				.attr("stroke-width", 1)					
+				.style("stroke-dasharray","5,5")
+				;
+
+			
+		
+		var mmDots = svg.selectAll(label+"mm").data(data).enter().append("circle");		
+		var mrDots = svg.selectAll(label+"mr").data(data).enter().append("circle");
+
+
+		mmDots.attr("cx", function(d) { return xScale(d.k); });
+		mmDots.attr("r", function(d) { return dotRadius; });
+		mmDots.attr("cy", function(d) {return yScale(d.t);});
+		mmDots.attr("class", "mmDots");	
+		mmDots.style("fill", function(d) {return color;});
+
+		mrDots.attr("cx", function(d) { return xScale(d.k); });
+		mrDots.attr("r", function(d) { return dotRadius; });
+		mrDots.attr("cy", function(d) {return yScale(d.tmr);});
+		mrDots.attr("class", "mmDots");	
+		mrDots.style("fill", function(d) {return color;});
+
+		mmDots.on("mouseover", function(d){
+		
+			//line to Y-axis
+			svg.append("line")
+				.attr("id", "tooltip1")	
+				.attr("x1", xScale(d.k))
+				.attr("x2", margin.left)
+				.attr("y1", yScale(d.t))
+				.attr("y2", yScale(d.t))
+				.attr("stroke","black" )
+				.attr("stroke-width", 1)					
+				.style("stroke-dasharray","5,5")
+				;
+
+
+			svg.append("text")
+				.attr("id", "tooltip2")
+				.text(parseSciNumber(d.t))
+				.attr("x", 0)
+				.attr("y", yScale(d.t))
+				.attr("font-family", "sans-serif") 					
+				.attr("font-size", "10px")
+				.attr("fill", "black")
+				;
+
+			var currentDot = d3.select(this);
+				currentDot.transition()
+						.attr("r",dotRadius+3);
+		
+		});
+
+		mmDots.on("mouseout", function(d){
+
+			d3.select(this).transition().attr("r",dotRadius);
+			d3.select("#tooltip1").remove();
+			d3.select("#tooltip2").remove();
+		});
+
+		mrDots.on("mouseover", function(d){
+		
+			//line to Y-axis
+			svg.append("line")
+				.attr("id", "tooltip3")	
+				.attr("x1", xScale(d.k))
+				.attr("x2", margin.left)
+				.attr("y1", yScale(d.tmr))
+				.attr("y2", yScale(d.tmr))
+				.attr("stroke","black" )
+				.attr("stroke-width", 1)					
+				.style("stroke-dasharray","5,5")
+				;
+
+
+			svg.append("text")
+				.attr("id", "tooltip4")
+				.text(parseSciNumber(d.tmr))
+				.attr("x", 0)
+				.attr("y", yScale(d.tmr))
+				.attr("font-family", "sans-serif") 					
+				.attr("font-size", "10px")
+				.attr("fill", "black")
+				;
+
+			var currentDot = d3.select(this);
+				currentDot.transition()
+						.attr("r",dotRadius+3);
+		
+
+		
+		});
+
+		mrDots.on("mouseout", function(d){
+
+			d3.select(this).transition().attr("r",dotRadius);
+			d3.select("#tooltip3").remove();
+			d3.select("#tooltip4").remove();
+		});
+				
+
+	}
+
+
+	function generateAxes(){ 
+	//NOTE Y-axis must only be moved horizontally, scaling takes care of right position!
+
+		//drawing the X and Y-axis + add a caption
+		var xAxis = d3.svg.axis()
+				.scale(xScale)
+				.orient("bottom")
+				.ticks(7)
+				;
+
+		var yAxis = d3.svg.axis()
+				.scale(yScale)
+				.orient("left")
+				.ticks(30)
+				;
+
+		var gX = svg.append("g");
+		gX.attr("class","axis");
+		gX.attr("transform","translate("
+						+0
+						+","
+						+(h-margin.bottom)
+						+")"
+			);
+		gX.call(xAxis);
+
+		var gY = svg.append("g");
+		gY.attr("class","axis");
+		gY.attr("transform","translate("
+						+margin.left
+						+","
+						+0
+						+")"
+			);
+		gY.call(yAxis);
+
+
+		//adding captions
+		
+		var labelX = svg.append("text");
+		var labelY = svg.append("text");
+		labelX.attr("font-size", "18px")
+		labelY.attr("font-size", "18px")
+
+		labelX.text("Maximum motif length (min = 6)");
+		labelY.text("Time (ms) for motif retrieval in a gene family (top curves: MapReduce with streaming, bottom curves: purely in memory detection without storage)");
+
+		labelX.attr("transform","translate("
+						+(w-6.5*margin.right)
+						+","
+						+(h-1.2*margin.bottom)
+						+")"
+			);
+
+		labelY.attr("transform","translate("
+						+(margin.left/2) 
+						+","
+						+(margin.top/2)
+						+")"
+			);
+	}
+
+	function bindListeners(){
+	
+			d3.selectAll("input.Alph")
+					.on("click", function(){
+
+						var AlphType = d3.select(this).attr("value");
+					
+						processDataset(AlphType);
+			
+					});
+	}
+
+	function getButtonValue(name){
+			var buttons = document.getElementsByName(name);
+			for(var i = 0; i < buttons.length; i++) {
+				if (buttons[i].checked == true){
+					return buttons[i].value;			
+				}
+			}
+	}
+
+	function parseSciNumber(number){
+
+		if (number.indexOf("E")>=0){
+			return number.substr(0,4);		
+		} else {
+			return number.charAt(0)+"."+number.substr(1,2)		
+		}	
+	}
+
+
+
+
+	
+</script>
+
+</body>
+
+</html>
+

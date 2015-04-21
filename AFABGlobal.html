@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<head>
+<meta charset="utf-8">
+<script type="text/javascript" src="d3/d3.min.js"></script>
+<style>
+	.axis text {
+	  font: 15px sans-serif;
+	}
+
+	.axis path,
+	.axis line {
+	  fill: none;
+	  stroke: #000;
+	  shape-rendering: crispEdges;
+	}
+</style>
+</head>
+
+<body>
+
+<script>
+	var Cthr = [50,70,90];
+	var Fthr = [1,5,10,15,20,500];
+	var Tthr = [15,70,95];
+	var Ks   = [6,7,8,9,10,11,12];
+	var Ss   = [1,2,4,8,16,32,64];	
+
+	var h = 800;	 
+	var w = 1200;
+	var margin = {left:60, top:60, right:60, bottom:60};
+	var bubbleRadius = 12;
+	var dotRadius = 3;
+	var offset = 30;
+	
+	var svg = d3.select("body").append("svg");
+		svg.attr("height",h);
+		svg.attr("width",w);	
+
+	var xScale = d3.scale.linear()
+			.domain([41,99])
+			.range([margin.left,w-margin.right]);
+	
+	var yScale = d3.scale.log()
+			.domain([1,10000000000])
+			.range([h-margin.bottom,margin.top]);
+
+
+	var colorFilter = [];
+
+		
+
+	generateLegend();
+	
+
+	
+	d3.csv("AFRealReworked.csv", function(data1){ 
+		d3.csv("ABRealReworked.csv", function(data2){
+			d3.csv("AFRandomReworked.csv", function(data3){
+				d3.csv("ABRandomReworked.csv", function(data4){
+					
+					datapoints = generateSummaryDataset(data1,data2,data3,data4);
+						
+					visualizeSummaryDataset(datapoints);
+					generateFilterBoxes();
+
+				});			
+			}); 		
+		});	
+	});
+
+	
+
+	function generateLegend(){
+		
+		var legend_desc = [
+				"1.000 > FDR >= 0.100", 
+				"0.100 > FDR >= 0.050",
+				"0.050 > FDR >= 0.010",
+				"0.010 > FDR >= 0.001",
+				"0.001 > FDR >= 0.000"
+				];
+
+		
+		var colors = ["red", "orange", "yellow", "lawngreen", "green"];
+
+		for (i=0; i<colors.length; i++){
+
+
+			svg.append("text")
+				.text(legend_desc[i])
+				.attr("x",2*margin.left)
+				.attr("y",(h-margin.bottom-colors.length*25)+i*25)
+				.attr("font-family", "sans-serif")
+				.attr("font-size", "15px")
+				.attr("fill", "black")
+				;
+
+			svg.append("circle")
+				.attr("cx",2*margin.left-bubbleRadius-10)
+				.attr("cy",(h-margin.bottom-colors.length*25)+i*25)
+				.attr("r", bubbleRadius)
+				.attr("fill",colors[i])
+				
+				.on("click", function(){
+
+
+					var legendBubble = d3.select(this);
+					var bubbleFill = legendBubble.style("fill");
+					var bubbleEdge = legendBubble.style("stroke"); 
+					
+
+					if (bubbleFill == "rgb(255, 255, 255)"){
+						
+						AFBubbles = svg.selectAll(".AFBubbles");
+						ABBubbles = svg.selectAll(".ABBubbles");	
+
+						matchingAFBubbles = AFBubbles.filter(function(d){
+										return getColor(d.AFreal,d.AFrandm) == bubbleEdge;									
+						});
+						matchingABBubbles = ABBubbles.filter(function(d){
+										return getColor(d.ABreal,d.ABrandm) == bubbleEdge;									
+						});
+
+
+						matchingAFBubbles.style("fill-opacity","1");						
+						matchingABBubbles.style("fill-opacity","1");
+						matchingAFBubbles.style("pointer-events","all");	
+						matchingABBubbles.style("pointer-events","all");											
+
+						legendBubble.style("fill", bubbleEdge);
+						legendBubble.style("stroke","none");
+
+
+
+					} else {
+						AFBubbles = svg.selectAll(".AFBubbles");
+						ABBubbles = svg.selectAll(".ABBubbles");
+
+						matchingAFBubbles = AFBubbles.filter(function(d){
+										return getColor(d.AFreal,d.AFrandm) == bubbleFill;									
+									});
+						matchingABBubbles = ABBubbles.filter(function(d){
+										return getColor(d.ABreal,d.ABrandm) == bubbleFill;									
+									});
+
+
+						matchingAFBubbles.style("fill-opacity","0")						
+						matchingABBubbles.style("fill-opacity","0")
+						matchingAFBubbles.style("pointer-events","none");													
+						matchingABBubbles.style("pointer-events","none");													
+	
+						legendBubble.style("stroke", bubbleFill);			
+						legendBubble.style("fill", "white");
+						
+					}
+						
+
+					
+
+				})
+
+				;
+				
+				
+		}	
+			
+	}	
+
+		
+		
+	
+
+	
+
+	function generateSummaryDataset(datasetAFReal, datasetABReal, datasetAFRandom, datasetABRandom){
+		
+
+		labels = [];
+		for (k=0; k<Ks.length; k++){
+			for(s=0; s<Ss.length; s++){
+				labels.push(generateKSLabel(Ks[k],Ss[s]));			
+			}
+		}
+
+
+		dataptn = [];
+		for (i=0; i<datasetAFReal.length; i++){
+			
+			var id = datasetAFReal[i].name;
+			var spl = id.split("_");
+					
+			;
+			
+			var F = parseInt(spl[2]);
+			var T = parseInt(spl[3]);			
+			var C = parseInt(spl[1]);	
+
+			if (Fthr.indexOf(F)>=0 && Tthr.indexOf(T)>=0 && Cthr.indexOf(C)>=0){
+
+
+				dataptn.push({
+						name:		"C"+spl[1]+"F"+spl[2]+"BLS"+spl[3],
+						AFreal:	        sumAll(datasetAFReal[i]  , labels),
+						AFrandm:	sumAll(datasetAFRandom[i], labels),
+						ABreal:	        sumAll(datasetABReal[i]  , labels),
+						ABrandm:	sumAll(datasetABRandom[i], labels),
+						C:		datasetAFReal[i].C,
+						F:		datasetAFReal[i].F,
+						BLS:		datasetAFReal[i].T
+					});
+			}		
+		}
+		return dataptn;
+	}
+
+	
+
+	function visualizeSummaryDataset(dataptn){
+		
+		generateAxes();
+		
+		//selecting elements for bubble drawing
+		var AFBubbles = svg.selectAll("AFBubbles").data(dataptn).enter().append("circle");
+		var ABBubbles = svg.selectAll("ABBubbles").data(dataptn).enter().append("circle");
+		var AFdots    = svg.selectAll("AFdots").data(dataptn).enter().append("circle");
+		var ABdots    = svg.selectAll("ABdots").data(dataptn).enter().append("circle");
+		var AFABLines = svg.selectAll("AFABLines").data(dataptn).enter().append("line");	
+	
+	
+		//draw bubbles
+		AFBubbles.attr("cx", function(d) { return xScale(d.C)- offset; });
+		AFBubbles.attr("r", function(d) { return bubbleRadius; });
+		AFBubbles.attr("cy", function(d) {return yScale(d.AFreal);});
+		AFBubbles.attr("class", "AFBubbles");
+		AFBubbles.style("fill", function(d) {return getColor(d.AFreal,d.AFrandm);});
+
+		ABBubbles.attr("cx", function(d) { return xScale(d.C)+ offset; });
+		ABBubbles.attr("r", function(d) { return bubbleRadius; });
+		ABBubbles.attr("cy", function(d) {return yScale(d.ABreal);});
+		ABBubbles.attr("class", "ABBubbles");
+		ABBubbles.style("fill", function(d) {return getColor(d.ABreal,d.ABrandm);});
+
+		//draw dots in bubbles
+		AFdots.attr("cx", function(d) { return xScale(d.C)- offset; });
+		AFdots.attr("r", function(d) { return dotRadius; });
+		AFdots.attr("cy", function(d) {return yScale(d.AFreal);});
+		AFdots.attr("class", "AFdots");	
+		AFdots.style("fill", function(d) {return "black";});
+
+		ABdots.attr("cx", function(d) { return xScale(d.C)+ offset; });
+		ABdots.attr("r", function(d) { return dotRadius; });
+		ABdots.attr("cy", function(d) {return yScale(d.ABreal);});
+		ABdots.attr("class", "ABdots");	
+		ABdots.style("fill", function(d) {return "black";});	
+
+		//connect the dots with lines
+		AFABLines.attr("x1", function(d) { return xScale(d.C)- offset; });
+		AFABLines.attr("x2", function(d) { return xScale(d.C)+ offset; });
+		AFABLines.attr("y1", function(d) { return yScale(d.AFreal); });
+		AFABLines.attr("y2", function(d) { return yScale(d.ABreal); });
+		AFABLines.attr("stroke","black" );
+		AFABLines.attr("stroke-width", dotRadius)
+		AFABLines.attr("class", "AFABLines");	
+
+
+		//adding text to bubbles and dynamic grid lines	
+		AFBubbles.on("mouseover", function(d) {
+				
+				var currentBubble = d3.select(this);
+				currentBubble.transition()
+						.attr("r",bubbleRadius+4)
+				
+
+				//line to Y-axis
+				svg.append("line")
+					.attr("id", "tooltip1")	
+					.attr("x1", xScale(d.C) - offset)
+					.attr("x2", margin.left)
+					.attr("y1", yScale(d.AFreal))
+					.attr("y2", yScale(d.AFreal))
+					.attr("stroke","black" )
+					.attr("stroke-width", 1)					
+					.style("stroke-dasharray","5,5")
+					;
+				//line to X-axis
+				svg.append("line")
+					.attr("id", "tooltip5")	
+					.attr("x1", xScale(d.C) - offset)
+					.attr("x2", xScale(d.C))
+					.attr("y1", yScale(d.AFreal))
+					.attr("y2", h-margin.bottom)
+					.attr("stroke","black" )
+					.attr("stroke-width", 1)					
+					.style("stroke-dasharray","5,5")
+					;
+
+
+				
+				//value on Y-axis
+				svg.append("text")
+					.attr("id", "tooltip2")
+					.text(d.AFreal)
+					.attr("x", 0)
+					.attr("y", yScale(d.AFreal))
+					.attr("font-family", "sans-serif") 					
+					.attr("font-size", "10px")
+					.attr("fill", "black")
+					;
+
+				//type of dot 
+				svg.append("text")
+					.attr("id", "tooltip3")
+					.text("AF"+d.name) 
+					.attr("x", xScale(d.C) - offset -115)
+  					.attr("y", yScale(d.AFreal) -10)
+					.attr("font-family", "sans-serif") 
+					.attr("font-size", "12px") 
+					.attr("fill", "black");
+
+				//FDR of dot				
+				var fdrCalc = 100*fdr(d.AFreal,d.AFrandm)+"";
+				var fdrStr  = "FDR= "+fdrCalc.substr(0,fdrCalc.indexOf('.')+3)+" %";
+
+				svg.append("text")
+					.attr("id", "tooltip4")
+					.text(fdrStr) 
+					.attr("x", xScale(d.C) - offset -115)
+  					.attr("y", yScale(d.AFreal) +15)
+					.attr("font-family", "sans-serif") 
+					.attr("font-size", "12px") 
+					.attr("fill", "black")
+					;
+				
+	
+			})
+			
+			.on("mouseout", function(d) {
+				d3.select(this)
+					.transition()
+					.attr("r",bubbleRadius)
+					.attr("stroke","none")					
+					.attr("stroke-width",0);
+
+				d3.select("#tooltip1").remove();	
+				d3.select("#tooltip2").remove();
+				d3.select("#tooltip3").remove();	
+				d3.select("#tooltip4").remove();		
+				d3.select("#tooltip5").remove();				
+			})
+			;
+			
+		
+		ABBubbles.on("mouseover", function(d) {
+				
+				var currentBubble = d3.select(this);
+				currentBubble.transition()
+						.attr("r",bubbleRadius+4)
+						
+
+				//line to Y-axis
+				svg.append("line")
+					.attr("id", "tooltip1")	
+					.attr("x1", xScale(d.C) + offset)
+					.attr("x2", margin.left)
+					.attr("y1", yScale(d.ABreal))
+					.attr("y2", yScale(d.ABreal))
+					.attr("stroke","black" )
+					.attr("stroke-width", 1)					
+					.style("stroke-dasharray","5,5")
+					;
+
+				//line to X-axis
+				svg.append("line")
+					.attr("id", "tooltip5")	
+					.attr("x1", xScale(d.C) + offset)
+					.attr("x2", xScale(d.C))
+					.attr("y1", yScale(d.ABreal))
+					.attr("y2", h-margin.bottom)
+					.attr("stroke","black" )
+					.attr("stroke-width", 1)					
+					.style("stroke-dasharray","5,5")
+					;
+				
+				//value on Y-axis
+				svg.append("text")
+					.attr("id", "tooltip2")
+					.text(d.ABreal)
+					.attr("x", 0)
+					.attr("y", yScale(d.ABreal))
+					.attr("font-family", "sans-serif") 					
+					.attr("font-size", "10px")
+					.attr("fill", "black")
+					;
+
+				 
+
+				//type of dot 	
+				svg.append("text")
+					.attr("id", "tooltip3")
+					.text("AB"+d.name) 
+					.attr("x", xScale(d.C) + offset +25)
+  					.attr("y", yScale(d.ABreal) -10)
+					.attr("font-family", "sans-serif") 
+					.attr("font-size", "12px") 
+					.attr("fill", "black")
+					;
+
+				//FDR of dot				
+				var fdrCalc = 100*fdr(d.ABreal,d.ABrandm)+"";
+				var fdrStr  = "FDR= "+fdrCalc.substr(0,fdrCalc.indexOf('.')+3)+" %";
+
+				svg.append("text")
+					.attr("id", "tooltip4")
+					.text(fdrStr) 
+					.attr("x", xScale(d.C) + offset +25)
+  					.attr("y", yScale(d.ABreal) +15)
+					.attr("font-family", "sans-serif") 
+					.attr("font-size", "12px") 
+					.attr("fill", "black")
+					;
+	
+			})
+			
+			.on("mouseout", function(d) {
+				d3.select(this)
+					.transition()
+					.attr("r",bubbleRadius)
+					.attr("stroke","none")					
+					.attr("stroke-width",0);
+
+				d3.select("#tooltip1").remove();	
+				d3.select("#tooltip2").remove();
+				d3.select("#tooltip3").remove();	
+				d3.select("#tooltip4").remove();
+				d3.select("#tooltip5").remove();											
+			})
+			;
+
+		
+
+
+
+		
+		
+	}
+
+	function generateAxes(){ 
+	//NOTE Y-axis must only be moved horizontally, scaling takes care of right position!
+
+		//drawing the X and Y-axis + add a caption
+		var xAxis = d3.svg.axis()
+				.scale(xScale)
+				.orient("bottom")
+				.ticks(5)
+				;
+
+		var yAxis = d3.svg.axis()
+				.scale(yScale)
+				.orient("left")
+				.ticks(5)
+				;
+
+		var gX = svg.append("g");
+		gX.attr("class","axis");
+		gX.attr("transform","translate("
+						+0
+						+","
+						+(h-margin.bottom)
+						+")"
+			);
+		gX.call(xAxis);
+
+		var gY = svg.append("g");
+		gY.attr("class","axis");
+		gY.attr("transform","translate("
+						+margin.left
+						+","
+						+0
+						+")"
+			);
+		gY.call(yAxis);
+
+
+		//adding captions
+		
+		var labelX = svg.append("text");
+		var labelY = svg.append("text");
+		labelX.text("Confidence Score C (%)");
+		labelY.text("Number of motifs in real dataset");
+
+		labelX.attr("transform","translate("
+						+(w-4.5*margin.right)
+						+","
+						+(h-1.2*margin.bottom)
+						+")"
+			);
+
+		labelY.attr("transform","translate("
+						+(margin.left/2) 
+						+","
+						+(margin.top/2)
+						+")"
+			);
+		labelX.attr("font-size", "18px") 
+		labelY.attr("font-size", "18px") 
+
+	}
+	
+	function sumAll(datarow, labels){
+		var sum = 0;		
+		for (p=0; p<labels.length; p++){
+			sum+=parseInt(datarow[labels[p]]);	
+		}
+		return sum;
+
+	}
+
+	function fdr(_real, _randm){
+		return _randm / _real;	
+	}
+	function getColor(real, randm){
+		var f = randm/real;
+		if (f>=0.1)
+			return "rgb(255, 0, 0)";
+		else if (f>=0.05)
+			return "rgb(255, 165, 0)";
+		else if (f>=0.01)
+			return "rgb(255, 255, 0)";
+		else if (f>=0.001)
+			return "rgb(124, 252, 0)";
+		else
+			return "rgb(0, 128, 0)";		
+
+			
+	}	
+
+	function generateKSLabel(k,s){
+		return "k"+k+"s"+s;	
+	}	
+
+	
+	function generateFilterBoxes(){
+		
+		d3.selectAll("input.F")
+			.on("click", function(d){
+		
+				var validFs = getCheckBoxValues("chooseF");
+				var validTs = getCheckBoxValues("chooseT");
+
+				AFBubbles = svg.selectAll(".AFBubbles");
+				ABBubbles = svg.selectAll(".ABBubbles");	
+
+				matchingAFBubbles = AFBubbles.filter(function(d){
+					return validFs.indexOf(parseInt(d.F))>=0 && validTs.indexOf(parseInt(d.BLS))>=0;									
+				});
+				matchingABBubbles = ABBubbles.filter(function(d){
+					return validFs.indexOf(parseInt(d.F))>=0 && validTs.indexOf(parseInt(d.BLS))>=0;										
+				});
+
+				matchingAFBubbles.style("fill-opacity","1");						
+				matchingABBubbles.style("fill-opacity","1");
+				matchingAFBubbles.style("pointer-events","all");	
+				matchingABBubbles.style("pointer-events","all");											
+					
+				nonmatchingAFBubbles = AFBubbles.filter(function(d){
+					return validFs.indexOf(parseInt(d.F))<0 || validTs.indexOf(parseInt(d.BLS))<0;									
+				});
+				nonmatchingABBubbles = ABBubbles.filter(function(d){
+					return validFs.indexOf(parseInt(d.F))<0 || validTs.indexOf(parseInt(d.BLS))<0;
+				});
+
+				nonmatchingAFBubbles.style("fill-opacity","0")						
+				nonmatchingABBubbles.style("fill-opacity","0")
+				nonmatchingAFBubbles.style("pointer-events","none");
+				nonmatchingABBubbles.style("pointer-events","none");				
+
+							
+
+			})
+			;	
+
+		d3.selectAll("input.bls")
+			.on("click", function(d){
+		
+					var validFs = getCheckBoxValues("chooseF");
+				var validTs = getCheckBoxValues("chooseT");
+
+				AFBubbles = svg.selectAll(".AFBubbles");
+				ABBubbles = svg.selectAll(".ABBubbles");	
+
+				matchingAFBubbles = AFBubbles.filter(function(d){
+					return validFs.indexOf(parseInt(d.F))>=0 && validTs.indexOf(parseInt(d.BLS))>=0;									
+				});
+				matchingABBubbles = ABBubbles.filter(function(d){
+					return validFs.indexOf(parseInt(d.F))>=0 && validTs.indexOf(parseInt(d.BLS))>=0;										
+				});
+
+				matchingAFBubbles.style("fill-opacity","1");						
+				matchingABBubbles.style("fill-opacity","1");
+				matchingAFBubbles.style("pointer-events","all");	
+				matchingABBubbles.style("pointer-events","all");											
+					
+				nonmatchingAFBubbles = AFBubbles.filter(function(d){
+					return validFs.indexOf(parseInt(d.F))<0 || validTs.indexOf(parseInt(d.BLS))<0;									
+				});
+				nonmatchingABBubbles = ABBubbles.filter(function(d){
+					return validFs.indexOf(parseInt(d.F))<0 || validTs.indexOf(parseInt(d.BLS))<0;
+				});
+
+				nonmatchingAFBubbles.style("fill-opacity","0")						
+				nonmatchingABBubbles.style("fill-opacity","0")
+				nonmatchingAFBubbles.style("pointer-events","none");
+				nonmatchingABBubbles.style("pointer-events","none");				
+
+							
+
+			})
+			;	
+
+	}	
+	
+	function getCheckBoxValues(name){
+		var boxes = document.getElementsByName(name);
+		var values = [];		
+		for(var i = 0; i < boxes.length; i++) {
+			if (boxes[i].checked == true){
+				values.push(parseInt(boxes[i].value));			
+			}
+		}
+		return values;
+	}
+		
+
+						
+
+	
+</script>
+
+<form>
+		<table>
+			<tr>
+			<td> BLS thresholds </td>
+			<td> <input class="bls" type="checkbox" name="chooseT" value="15"  checked> 15  </td>
+			<td> <input class="bls" type="checkbox" name="chooseT" value="70"  checked> 70  </td>
+			<td> <input class="bls" type="checkbox" name="chooseT" value="95"  checked> 95  </td>	
+			</tr>
+
+			<tr>
+			<td> F thresholds  </td>
+			<td> <input class="F" type="checkbox" name="chooseF" value="1"  checked> 1  </td>
+			<td> <input class="F" type="checkbox" name="chooseF" value="5"  checked> 5  </td>	
+			<td> <input class="F" type="checkbox" name="chooseF" value="10" checked> 10  </td>	
+			<td> <input class="F" type="checkbox" name="chooseF" value="15" checked> 15  </td>	
+			<td> <input class="F" type="checkbox" name="chooseF" value="20" checked> 20 </td>
+			<td> <input class="F" type="checkbox" name="chooseF" value="500" checked> 500 </td>	
+
+			</tr>
+		</table>
+	</form>
+
+</body>
+
+</html>
+
